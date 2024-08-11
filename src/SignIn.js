@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { CognitoUser, AuthenticationDetails } from 'amazon-cognito-identity-js';
 import UserPool from './cognitoConfig';
 
-function SignIn() {
+function SignIn({ onSignInSuccess }) {  // Add onSignInSuccess prop
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
@@ -18,6 +18,7 @@ function SignIn() {
       onSuccess: (data) => {
         console.log('onSuccess:', data);
         setMessage('Sign in successful!');
+        onSignInSuccess();  // Trigger the callback
       },
       onFailure: (err) => {
         console.error('onFailure:', err);
