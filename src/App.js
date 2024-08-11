@@ -1,23 +1,40 @@
-import logo from './logo.svg';
-import './App.css';
+// src/App.js
+import React, { useState, useEffect } from 'react';
+import SignUp from './SignUp';
+import SignIn from './SignIn';
+import UserPool from './cognitoConfig';
 
 function App() {
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const getSession = () => {
+      const cognitoUser = UserPool.getCurrentUser();
+      if (cognitoUser) {
+        cognitoUser.getSession((err, session) => {
+          if (err) {
+            console.error(err);
+          } else {
+            setUser(session);
+          }
+        });
+      }
+    };
+    getSession();
+  }, []);
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+    <div>
+      {!user ? (
+        <>
+          <SignUp />
+          <SignIn />
+        </>
+      ) : (
+        <div>
+          <h2>Welcome, {user.getIdToken().payload['cognito:username']}</h2>
+        </div>
+      )}
     </div>
   );
 }
