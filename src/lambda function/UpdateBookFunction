@@ -1,0 +1,90 @@
+// UpdateBookFunction > index.js 
+
+const AWS = require('aws-sdk');
+const dynamo = new AWS.DynamoDB.DocumentClient();
+const s3 = new AWS.S3();
+
+exports.handler = async (event) => {
+    try {
+        const book = JSON.parse(event.body);
+
+        // Log the incoming book data for debugging
+        console.log('Received book data:', book);
+
+        // Basic validation to ensure all necessary attributes are present
+        if (!book.BookID || !book.Title || !book.Authors || !book.Publisher || !book.Year) {
+            return {
+                statusCode: 400,
+                body: JSON.stringify({ error: 'Missing required book attributes' }),
+            };
+        }
+
+        // Get the existing book data to check if it exists
+        const getParams = {
+            TableName: 'Books',
+            Key: {
+                'BookID': book.BookID
+            }
+        };
+        const existingBook = await dynamo.get(getParams).promise();
+
+        if (!existingBook.Item) {
+            return {
+                statusCode: 404,
+                body: JSON.stringify({ error: 'Book not found' }),
+            };
+        }
+
+        const existingImageUrl = existingBook.Item.imageUrl;
+
+        // If the new book data contains a different image URL, delete the old image
+        if (existingImageUrl && book.imageUrl && existingImageUrl !== book.imageUrl) {
+            const bucketName = 'book-collection-app-jul30-react'; // Your S3 bucket name
+            const imageKey = existingImageUrl.split('/').pop(); // Extract the image key from the URL
+
+            const s3Params = {
+                Bucket: bucketName,
+                Key: imageKey
+            };
+            await s3.deleteObject(s3Params).promise();
+        }
+
+        // Build the update expression dynamically based on the fields provided
+        let updateExpression = 'set #t = :t, Authors = :a, Publisher = :p, #y = :y';
+        let expressionAttributeValues = {
+            ':t': book.Title,
+            ':a': book.Authors,
+            ':p': book.Publisher,
+            ':y': book.Year,
+        };
+
+        // Include imageUrl in the update expression if it's present
+        if (book.imageUrl) {
+            updateExpression += ', imageUrl = :i';
+            expressionAttributeValues[':i'] = book.imageUrl;
+        }
+
+        const params = {
+            TableName: 'Books',
+            Key: { BookID: book.BookID },
+            UpdateExpression: updateExpression,
+            ExpressionAttributeNames: { '#t': 'Title', '#y': 'Year' },
+            ExpressionAttributeValues: expressionAttributeValues,
+            ReturnValues: 'UPDATED_NEW'
+        };
+
+        const result = await dynamo.update(params).promise();
+
+        return {
+            statusCode: 200,
+            body: JSON.stringify({ message: 'Book updated successfully', updatedAttributes: result.Attributes }),
+        };
+
+    } catch (error) {
+        console.error('Error updating book:', error);
+        return {
+            statusCode: 500,
+            body: JSON.stringify({ error: 'Could not update book' }),
+        };
+    }
+};

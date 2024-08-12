@@ -1,0 +1,34 @@
+// GetBookFunction > index.js 
+
+const AWS = require('aws-sdk');
+const dynamo = new AWS.DynamoDB.DocumentClient();
+
+exports.handler = async (event) => {
+    const params = {
+        TableName: 'Books'
+    };
+
+    try {
+        // Scan the DynamoDB table to retrieve all books
+        const data = await dynamo.scan(params).promise();
+        
+        // Return the list of books, including the imageUrl field
+        return {
+            statusCode: 200,
+            body: JSON.stringify(data.Items.map(book => ({
+                BookID: book.BookID,
+                Title: book.Title,
+                Authors: book.Authors,
+                Publisher: book.Publisher,
+                Year: book.Year,
+                imageUrl: book.imageUrl || '', // Include the imageUrl field, default to empty string if not present
+            }))),
+        };
+    } catch (error) {
+        // Return an error response if something goes wrong
+        return {
+            statusCode: 500,
+            body: JSON.stringify({ error: 'Could not retrieve books' }),
+        };
+    }
+};

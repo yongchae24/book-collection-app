@@ -1,0 +1,61 @@
+// DeleteBookFunction > index.js 
+
+const AWS = require('aws-sdk');
+const dynamo = new AWS.DynamoDB.DocumentClient();
+const s3 = new AWS.S3();
+
+exports.handler = async (event) => {
+    const bookId = event.pathParameters.BookID;
+
+    // Get the book details from DynamoDB to retrieve the image URL
+    const getParams = {
+        TableName: 'Books',
+        Key: {
+            'BookID': bookId
+        }
+    };
+
+    try {
+        const bookData = await dynamo.get(getParams).promise();
+        if (!bookData.Item) {
+            return {
+                statusCode: 404,
+                body: JSON.stringify({ error: 'Book not found' }),
+            };
+        }
+
+        const imageUrl = bookData.Item.imageUrl;
+
+        // Delete the book from DynamoDB
+        const deleteParams = {
+            TableName: 'Books',
+            Key: {
+                'BookID': bookId
+            }
+        };
+        await dynamo.delete(deleteParams).promise();
+
+        // Delete the image from S3 if it exists
+        if (imageUrl) {
+            const bucketName = 'book-collection-app-jul30-react'; // Replace with your S3 bucket name
+            const imageKey = imageUrl.split('/').pop(); // Extract the image key from the URL
+
+            const s3Params = {
+                Bucket: bucketName,
+                Key: imageKey
+            };
+            await s3.deleteObject(s3Params).promise();
+        }
+
+        return {
+            statusCode: 200,
+            body: JSON.stringify({ message: 'Book and associated image deleted successfully' }),
+        };
+    } catch (error) {
+        console.error('Error deleting book:', error);
+        return {
+            statusCode: 500,
+            body: JSON.stringify({ error: 'Could not delete book', details: error.message }),
+        };
+    }
+};

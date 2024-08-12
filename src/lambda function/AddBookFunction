@@ -1,0 +1,44 @@
+// AddBookFunction > index.js 
+
+const AWS = require('aws-sdk');
+const dynamo = new AWS.DynamoDB.DocumentClient();
+
+exports.handler = async (event) => {
+    try {
+        const book = JSON.parse(event.body);
+
+        // Basic validation to ensure all necessary attributes are present, including imageUrl
+        if (!book.BookID || !book.Title || !book.Authors || !book.Publisher || !book.Year || !book.imageUrl) {
+            return {
+                statusCode: 400,
+                body: JSON.stringify({ error: 'Missing required book attributes' }),
+            };
+        }
+
+        const params = {
+            TableName: 'Books',
+            Item: {
+                BookID: book.BookID,
+                Title: book.Title,
+                Authors: book.Authors,
+                Publisher: book.Publisher,
+                Year: book.Year,
+                imageUrl: book.imageUrl, // Include imageUrl when adding a book
+            },
+        };
+
+        await dynamo.put(params).promise();
+
+        return {
+            statusCode: 200,
+            body: JSON.stringify({ message: 'Book added successfully' }),
+        };
+
+    } catch (error) {
+        console.error('Error adding book:', error);
+        return {
+            statusCode: 500,
+            body: JSON.stringify({ error: 'Could not add book' }),
+        };
+    }
+};
